@@ -1,6 +1,6 @@
 ---
 title: "Assignment 4: Data Wrangling (Spring 2026)"
-author: "Student Name"
+author: "Humayra Rahman"
 output: pdf_document
 geometry: margin=2.54cm
 editor_options: 
@@ -35,13 +35,32 @@ Do not use any AI tools in completing this assignment.
 
 ```{r setup, message = FALSE}
 #1a 
+library(tidyverse)
+library(here)
 
-#1b 
+#1b
+getwd()
 
-#1c 
+#1c reading all the files
 
-#2 
+pm25_2018 <- read.csv(here("Data", "Raw", "EPAair_PM25_NC2018_raw.csv"),
+  stringsAsFactors = TRUE)
 
+pm25_2019 <- read.csv(here("Data", "Raw", "EPAair_PM25_NC2019_raw.csv"),
+  stringsAsFactors = TRUE)
+
+o3_2018 <- read.csv(here("Data", "Raw", "EPAair_O3_NC2018_raw.csv"),
+  stringsAsFactors = TRUE)
+
+o3_2019 <- read.csv(here("Data", "Raw", "EPAair_O3_NC2019_raw.csv"),
+  stringsAsFactors = TRUE)
+
+#2 checking dimensions
+
+dim(pm25_2018)
+dim(pm25_2019)
+dim(o3_2018)
+dim(o3_2019)
 
 ```
 
@@ -60,14 +79,52 @@ Do not use any AI tools in completing this assignment.
 6. Save all four processed datasets in the Processed folder. Use the same file names as the raw files but replace "raw" with "processed".
 
 ```{r questions 3 thru 4}
-#3
+#3 changing date cols to date obj
+library(lubridate)
 
-#4
+pm25_2018$Date <- lubridate::mdy(pm25_2018$Date)
 
-#5
+pm25_2019$Date <- lubridate::mdy(pm25_2019$Date)
 
-#6
+o3_2018$Date <- lubridate::mdy(o3_2018$Date)
 
+o3_2019$Date <- lubridate::mdy(o3_2019$Date)
+
+#4 creating new dataframes w only the desired cols
+
+pm25_2018_new  <- pm25_2018  %>% select(Date, DAILY_AQI_VALUE, Site.Name, AQS_PARAMETER_DESC, COUNTY, SITE_LATITUDE, SITE_LONGITUDE)
+
+pm25_2019_new  <- pm25_2019  %>% select(Date, DAILY_AQI_VALUE, Site.Name, AQS_PARAMETER_DESC, COUNTY, SITE_LATITUDE, SITE_LONGITUDE)
+
+o3_2018_new  <- o3_2018  %>% select(Date, DAILY_AQI_VALUE, Site.Name, AQS_PARAMETER_DESC, COUNTY, SITE_LATITUDE, SITE_LONGITUDE)
+
+o3_2019_new  <- o3_2019  %>% select(Date, DAILY_AQI_VALUE, Site.Name, AQS_PARAMETER_DESC, COUNTY, SITE_LATITUDE, SITE_LONGITUDE)
+
+#5 filling all aqs cells w pm2.5
+
+pm25_2018_new <- pm25_2018_new %>%
+  mutate(AQS_PARAMETER_DESC = "PM2.5")
+
+pm25_2019_new <- pm25_2019_new %>%
+  mutate(AQS_PARAMETER_DESC = "PM2.5")
+
+#6 saving to processed folder
+
+write.csv(pm25_2018_new,
+          here("Data", "Processed", "EPAair_PM25_NC2018_processed.csv"),
+          row.names = FALSE)
+
+write.csv(pm25_2019_new,
+          here("Data", "Processed", "EPAair_PM25_NC2019_processed.csv"),
+          row.names = FALSE)
+
+write.csv(o3_2018_new,
+          here("Data", "Processed", "EPAair_O3_NC2018_processed.csv"),
+          row.names = FALSE)
+
+write.csv(o3_2019_new,
+          here("Data", "Processed", "EPAair_O3_NC2019_processed.csv"),
+          row.names = FALSE)
 
 ```
 
@@ -99,19 +156,58 @@ Do not use any AI tools in completing this assignment.
 12. Save your processed dataset with the following file name: "EPAair_O3_PM25_NC1819_Processed.csv"
 
 ```{r questions 7 thru 12}
-#7 
+#7 checking if names are identitical
+names(pm25_2018_new)
 
-#8 
+names(pm25_2019_new)
 
-#9
+names(o3_2018_new)
 
-#10
+names(o3_2019_new)
 
-#11
+EPAair_new_all <- rbind(pm25_2018_new, pm25_2019_new, o3_2018_new, o3_2019_new) #combining them w rbind
 
-#12
+#8 checking dimensions
+
+dim(EPAair_new_all)
+
+#9 including only the common data sites
+
+common_sites <- c("Linville Falls", "Durham Armory", "Leggett", "Hattie Avenue",
+  "Clemmons Middle", "Mendenhall School", "Frying Pan Mountain",
+  "West Johnston Co.", "Garinger High School", "Castle Hayne",
+  "Pitt Agri. Center", "Bryson City", "Millbrook School")
+
+# wrangling the data set w the pipe function + grouped by date,site name,AQS,county + took the mean of aqi,lat,long + mutated date col w month & year using lubridate
+
+library(lubridate)
+
+EPAair_wrangle <- EPAair_new_all %>% filter(Site.Name %in% common_sites) %>%
+  group_by(Date, Site.Name, AQS_PARAMETER_DESC, COUNTY) %>%
+  summarize(
+    DAILY_AQI_VALUE  = mean(DAILY_AQI_VALUE, na.rm = TRUE),
+    SITE_LATITUDE    = mean(SITE_LATITUDE, na.rm = TRUE),
+    SITE_LONGITUDE   = mean(SITE_LONGITUDE, na.rm = TRUE),
+    .groups = "drop") %>%
+  mutate(Month = lubridate::month(Date),
+    Year  = lubridate::year(Date))
+
+dim(EPAair_wrangle) #checking dimensions
 
 
+#10 spreading datasets 
+EPAair_spread <- EPAair_wrangle %>%
+  spread(key = AQS_PARAMETER_DESC, value = DAILY_AQI_VALUE)
+
+#11 checking dimensions
+
+dim(EPAair_spread)
+
+#12 saving processed dataset
+
+write.csv(EPAair_spread, 
+          here("Data", "Processed", "EPAair_O3_PM25_NC1819_Processed.csv"), 
+          row.names = FALSE)
 ```
 
 
@@ -123,17 +219,33 @@ Do not use any AI tools in completing this assignment.
 
 ```{r questions 13 and 14}
 
-#13
+#13 generating summary dataframe + grouping by site name,month,year + summarizing the mean ozone & pm2.5 values + used drop_na to remove missing ozone 
 
-#14
+summary_table <- EPAair_spread %>%
+  group_by(Site.Name, Month, Year) %>%
+  summarize(mean_ozone = mean(Ozone, na.rm = TRUE),
+    mean_pm25  = mean(PM2.5, na.rm = TRUE),
+    .groups = "drop") %>% drop_na(mean_ozone)
 
+# same but w na.omit instead of drop_na
+
+summary_table <- EPAair_spread %>%
+  group_by(Site.Name, Month, Year) %>%
+  summarize(mean_ozone = mean(Ozone, na.rm = TRUE),
+    mean_pm25  = mean(PM2.5, na.rm = TRUE),
+    .groups = "drop") %>% na.omit(mean_ozone)
+
+
+#14 checking the dimensions
+
+dim(summary_table)
 
 ```
 
 15. Why did we use the function `drop_na` rather than `na.omit`? Hint: replace `drop_na` with `na.omit` in part 13 and observe what happens with the dimensions of the summary date frame.
 
-> Answer: 
+> Answer: We use drop_na because it selectively removes rows where the mean ozone value is missing, while keeping rows with missing PM2.5 values. Whereas, na.omit removes any rows that have missing values in any column, including PM2.5, which would result in losing more rows than necessary. Hence, drop_na is more appropriate for this task, as it only removes rows with missing ozone values, preserving rows with missing PM2.5 values.
 
 16. Stage, commit, and push your Assignment to your GitHub account. Provide a link to your repository below.
 
-> Github repository URL: https:\\github.com\
+> Github repository URL: https://github.com/hum-r/EDE_Spring2026
